@@ -3,10 +3,12 @@ import Onboarding from './components/Onboarding';
 import TransactionList from './components/TransactionList';
 import Insights from './components/Insights';
 import SmsInputModal from './components/SmsInputModal';
+import Toast from './components/Toast';
 import { Home, PieChart, Plus, Settings } from './components/Icons';
 import { AppSettings, Transaction, INITIAL_SETTINGS, Category } from './types';
 import * as storage from './services/storageService';
 import { updateTransaction } from './services/storageService';
+import { initSmsListener } from './services/smsListener';
 
 const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
@@ -14,15 +16,28 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'home' | 'insights' | 'settings'>('home');
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Toast State
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
-  // Load data on mount
+  // Load data on mount and start listener
   useEffect(() => {
     const loadedSettings = storage.getSettings();
     const loadedTransactions = storage.getTransactions();
     setSettings(loadedSettings);
     setTransactions(loadedTransactions);
     setLoading(false);
-  }, []);
+
+    // Initialize Native SMS Listener
+    if (loadedSettings.isOnboarded) {
+      initSmsListener((newTx) => {
+        setTransactions(prev => [newTx, ...prev]);
+        setToastMessage(`New transaction detected: ${newTx.amount} ETB`);
+        setToastVisible(true);
+      });
+    }
+  }, [settings.isOnboarded]);
 
   const handleOnboardingComplete = (newSettings: AppSettings) => {
     storage.saveSettings(newSettings);
@@ -53,6 +68,13 @@ const App: React.FC = () => {
   return (
     <div className="max-w-md mx-auto min-h-screen bg-zinc-950 text-zinc-100 flex flex-col relative overflow-hidden shadow-2xl">
       
+      {/* Toast Notification */}
+      <Toast 
+        message={toastMessage}
+        isVisible={toastVisible}
+        onClose={() => setToastVisible(false)}
+      />
+
       {/* Header */}
       <header className="px-6 pt-8 pb-4 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-10 border-b border-zinc-800/50">
         <div className="flex items-center justify-between">
